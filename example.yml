@@ -1,0 +1,7 @@
+- run:
+  name: vrc_auto_rejoin_tool
+  path: ./vrc_auto_rejoin_tool.exe
+
+- run:
+  name: vrc_joined_bell
+  path: ./vrc_joined_bell.exe
