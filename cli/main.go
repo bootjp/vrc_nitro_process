@@ -67,7 +67,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	data, err := ioutil.ReadFile(d + "/example.yml")
+	data, err := ioutil.ReadFile(d + "/setting.yml")
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
