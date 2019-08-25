@@ -6,8 +6,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -15,55 +17,65 @@ import (
 )
 
 type Run struct {
-	Name string
-	Path string
+	Name     string `yaml:"name"`
+	Path     string `yaml:"path"`
+	SleepSec int    `yaml:"sleep_sec"`
 }
 type Process []Run
 
 const vrcLogName = "output_log"
+const vrcRelativeLogPath = `\AppData\LocalLow\VRChat\VRChat\`
 
 func lunch(run Run) error {
 	cmd := &exec.Cmd{
-		Path:   os.Getenv("COMSPEC"),
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Path: os.Getenv("COMSPEC"),
 		SysProcAttr: &syscall.SysProcAttr{
-			CmdLine: `/S /C ` + run.Path,
+			CmdLine: fmt.Sprintf(`/S /C start %s`, run.Path),
 			// Foreground: true,
 		}, // when run non windows environment please comment out this line. because this line is window only system call.
 	}
 
 	out, err := cmd.Output()
-	fmt.Println(out)
+	fmt.Printf("%s\n", out)
 	return err
 }
 
-func main() {
-	if len(os.Args) != 1 {
-		fmt.Println("please specify yml file.")
-		//os.Exit(1)
-		// todo remove this line, because for debugging.
-
+func UserHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
 	}
-	d, _ := os.Getwd()
-	p := d + "/example.yml"
-	fmt.Println(p)
+	return os.Getenv("HOME")
+}
 
-	data, err := ioutil.ReadFile(p)
+var debug bool
+
+func setupDebugMode(home string) {
+	debug = os.Getenv("DEBUG") == "true"
+	debug = debug || strings.Contains(home, "bootjp")
+	if debug {
+		fmt.Println("ENABLE DEBUG MODE")
+	}
+}
+func main() {
+	d, err := os.Getwd()
 	if err != nil {
+		fmt.Println("home directory not detected")
 		log.Fatal(err)
+	}
+
+	data, err := ioutil.ReadFile(d + "/example.yml")
+	if err != nil {
+		log.Fatalf("error: %v", err)
 	}
 
 	process := &Process{}
 	err = yaml.Unmarshal(data, &process)
 	if err != nil {
 		log.Fatalf("error: %v", err)
-	}
-
-	for _, v := range *process {
-		fmt.Println(v.Name)
-		fmt.Println(v.Path)
 	}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -85,12 +97,7 @@ func main() {
 				if !ok {
 					return
 				}
-				//// ignore hidden file
-				//path := strings.Split(event.Name, "/")
-				//
-				//if path[len(path)-1] == "." {
-				//	continue
-				//}
+
 				if event.Op&fsnotify.Create != fsnotify.Create {
 					continue
 				}
@@ -98,11 +105,18 @@ func main() {
 				if !strings.Contains(event.Name, vrcLogName) {
 					continue
 				}
-				log.Println("create log file:", event.Name)
+
 				for _, r := range *process {
-					if err := lunch(r); err != nil {
-						log.Fatal(err)
-					}
+					go func(r Run) {
+						log.SetPrefix(r.Name)
+						if r.SleepSec > 0 {
+							time.Sleep(time.Duration(r.SleepSec))
+						}
+						if err := lunch(r); err != nil {
+							log.Fatal(err)
+						}
+					}(r)
+
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -112,8 +126,17 @@ func main() {
 			}
 		}
 	}()
-	err = watcher.Add(`/Volumes/HomeNas`)
-	//err = watcher.Add(`C:\Users\bootjp\AppData\LocalLow\VRChat\VRChat\`)
+	home := UserHomeDir()
+	setupDebugMode(home)
+	if debug {
+		for _, v := range *process {
+			fmt.Println(v.Name)
+			fmt.Println(v.Path)
+			fmt.Println(v.SleepSec)
+		}
+	}
+	err = watcher.Add(home + vrcRelativeLogPath)
+
 	if err != nil {
 		log.Fatal(err)
 	}

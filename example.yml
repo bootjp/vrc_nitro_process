@@ -1,6 +1,7 @@
 - run:
   name: vrc_auto_rejoin_tool
   path: ./vrc_auto_rejoin_tool.exe
+  sleep_sec: 10
 
 - run:
   name: vrc_joined_bell
