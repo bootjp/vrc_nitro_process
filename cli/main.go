@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -20,6 +19,7 @@ type Run struct {
 	Name     string `yaml:"name"`
 	Path     string `yaml:"path"`
 	SleepSec int    `yaml:"sleep_sec"`
+	Args     string `yaml`
 }
 type Process []Run
 
@@ -27,14 +27,8 @@ const vrcLogName = "output_log"
 const vrcRelativeLogPath = `\AppData\LocalLow\VRChat\VRChat\`
 
 func lunch(run Run) error {
-	cmd := &exec.Cmd{
-		Path: os.Getenv("COMSPEC"),
-		SysProcAttr: &syscall.SysProcAttr{
-			CmdLine: fmt.Sprintf(`/S /C start %s`, run.Path),
-			// Foreground: true,
-		}, // when run non windows environment please comment out this line. because this line is window only system call.
-	}
 
+	cmd := exec.Command(run.Path, run.Args)
 	out, err := cmd.Output()
 	fmt.Printf("%s\n", out)
 	return err
@@ -55,10 +49,6 @@ var debug bool
 
 func setupDebugMode(home string) {
 	debug = os.Getenv("DEBUG") == "true"
-	debug = debug || strings.Contains(home, "bootjp")
-	if debug {
-		fmt.Println("ENABLE DEBUG MODE")
-	}
 }
 func main() {
 	d, err := os.Getwd()
@@ -67,7 +57,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	data, err := ioutil.ReadFile(d + "/setting.yml")
+	data, err := ioutil.ReadFile("setting.yml")
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
