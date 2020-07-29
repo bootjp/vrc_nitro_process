@@ -1,4 +1,9 @@
 # vrc_nitro_process (VRChatのログが生成されたらプロセスを起動するやつ）
+
+THIS PROJECT ARCHIVED
+
+USING https://github.com/TenteEEEE/app_binder
+
 [In development] Monitor the VRChat log directory and start the process when a log is generated
 
 *THIS PROJECT NOW IS IN DEVELOPMENT SO UNSTABLE.*  
